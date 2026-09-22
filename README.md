@@ -1,4 +1,4 @@
-validacion-cul-sunafil/
+cul-sunafil/
 ├── config/
 │   ├── settings.py          # rutas base, credenciales DB, timeouts, flags de entorno
 │   └── logging_config.py    # configuración centralizada de logging (formato, nivel, rotación)
