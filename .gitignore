@@ -13,3 +13,7 @@ wheels/
 
 #Docuemntation
 documentos/
+
+# Logs de ejecución y extracción
+logs/
+resultados/

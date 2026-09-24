@@ -8,8 +8,10 @@ def construir_ruta_completa(ruta_relativa: str, guid: str, extension: str) -> Pa
     nombre_archivo = f"{guid}.{extension}"
     return Path(settings.FILE_SERVER_BASE_PATH) / ruta_relativa.strip("/\\") / nombre_archivo
 
-def listar_archivos_cliente(instancia: int) -> list[dict]:
-    registros = get_archivos_por_instancia(instancia)
+def listar_archivos_cliente(instancia: int, registros: list[dict] | None = None) -> list[dict]:
+    """Arma la ruta en file server de cada archivo no excluido. Si ya se tienen los registros de la BD, no se vuelve a consultar."""
+    if registros is None:
+        registros = get_archivos_por_instancia(instancia)
     resultado = []
 
     for reg in registros:
