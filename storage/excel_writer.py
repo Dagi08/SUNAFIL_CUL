@@ -5,12 +5,13 @@ from classification.rule_classifier import PALABRAS_CLAVE
 
 ENCABEZADOS = ["instancia", *PALABRAS_CLAVE]
 
-def registrar_instancia(instancia: int, tipos: dict[str, bool]) -> Path:
+def registrar_instancia(instancia: int, tipos: dict[str, bool], periodo: str | None = None) -> Path:
     """
-    Agrega (o actualiza, si ya existe) la fila de la instancia en el Excel de resultados:
+    Agrega (o actualiza, si ya existe) la fila de la instancia en el Excel del periodo
+    (<RESULTADOS_DIR>/validacion_<periodo>.xlsx):
     instancia | SUNAFIL | CUL | BOLETA  con valores SI / NO.
     """
-    ruta = Path(settings.RESULTADOS_XLSX)
+    ruta = Path(settings.RESULTADOS_DIR) / f"validacion_{periodo or 'sin_periodo'}.xlsx"
     ruta.parent.mkdir(parents=True, exist_ok=True)
 
     if ruta.exists():

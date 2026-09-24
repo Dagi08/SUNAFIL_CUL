@@ -21,6 +21,11 @@ class Settings:
     DB_PORT = os.getenv("DB_PORT")
     DB_DRIVER = os.getenv("DB_DRIVER")
     DB_EXTRA_PARAMS = os.getenv("DB_EXTRA_PARAMS", "")
+
+    # BD de Negocio: solicitudes del periodo (Num_Sol = instancia)
+    NEGOCIO_DB_HOST = os.getenv("NEGOCIO_DB_HOST", r"SRVJADBANLT01\SQL01DBA2019")
+    NEGOCIO_DB_NAME = os.getenv("NEGOCIO_DB_NAME", "Negocio")
+
     FILE_SERVER_BASE_PATH = os.getenv("FILE_SERVER_BASE_PATH")
     DOWNLOAD_BASE_PATH = os.getenv("DOWNLOAD_BASE_PATH", "documentos")
 
@@ -36,8 +41,8 @@ class Settings:
     # Si el OCR de la página completa da menos que esto, se reintenta con las fotos incrustadas
     MIN_CHARS_OCR_PAGINA = int(os.getenv("MIN_CHARS_OCR_PAGINA", 200))
 
-    # Resultado de la clasificación (instancia | SUNAFIL | CUL | BOLETA)
-    RESULTADOS_XLSX = os.getenv("RESULTADOS_XLSX", "resultados/validacion_documentos.xlsx")
+    # Resultado de la clasificación: <RESULTADOS_DIR>/validacion_<periodo>.xlsx
+    RESULTADOS_DIR = os.getenv("RESULTADOS_DIR", "resultados")
 
     # Logging
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")

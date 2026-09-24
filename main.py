@@ -1,20 +1,23 @@
 """
-Flujo completo por instancia:
-  1. Consulta en BD los archivos de la instancia
-  2. Filtra por nombre los documentos que no se validan
+Flujo completo por periodo:
+  1. Consulta en BD Negocio las solicitudes del periodo (Num_Sol = instancia)
+  Por cada instancia:
+  2. Consulta en BD Riesgo los archivos de la instancia y filtra por nombre los que no se validan
   3. Arma la ruta de cada archivo en el file server
   4. Copia los archivos a DOWNLOAD_BASE_PATH/<instancia>/
-  5. Extrae texto (OCR), guarda .log/.json y registra SUNAFIL | CUL | BOLETA en el .xlsx
+  5. Extrae texto (OCR), guarda .log/.json y registra SUNAFIL | CUL | BOLETA en resultados/validacion_<periodo>.xlsx
 
 Uso:
-    python main.py 817681
-    python main.py 817681 817682 817683
+    python main.py 202607
+    python main.py 202607 --limite 5      # solo las primeras 5 solicitudes (para pruebas)
 """
+import argparse
 import logging
+import re
 import sys
 from pathlib import Path
 from config.logging_config import setup_logging
-from db.queries import get_archivos_por_instancia
+from db.queries import get_archivos_por_instancia, get_solicitudes_por_periodo
 from extraction import get_extractor
 from extraction.base_extractor import BaseExtractor
 from file_access.name_filter import es_archivo_excluido
@@ -24,16 +27,20 @@ from pipeline.orchestrator import procesar_instancia
 
 logger = logging.getLogger(__name__)
 
-def ejecutar_instancia(instancia: int, extractor: BaseExtractor) -> dict[str, bool] | None:
+def obtener_instancias(periodo: str) -> list[int]:
+    """Num_Sol únicos del periodo, en el orden que devuelve la query."""
+    solicitudes = get_solicitudes_por_periodo(periodo)
+    return list(dict.fromkeys(int(s["Num_Sol"]) for s in solicitudes))
+
+def ejecutar_instancia(instancia: int, periodo: str, extractor: BaseExtractor) -> dict[str, bool] | None:
     print(f"\n{'=' * 70}\nINSTANCIA {instancia}\n{'=' * 70}")
 
-    # 1. Consulta en BD
+    # 2. Archivos de la instancia + filtro por nombre
     registros = get_archivos_por_instancia(instancia)
     if not registros:
-        print("No hay registros en BD para esta instancia")
+        print("No hay registros de archivos en BD para esta instancia")
         return None
 
-    # 2. Filtro por nombre
     excluidos = [r for r in registros if es_archivo_excluido(r["nombre_original"])]
     print(f"[1/4] Registros en BD: {len(registros)} | Excluidos por nombre: {len(excluidos)}")
     for r in excluidos:
@@ -60,21 +67,34 @@ def ejecutar_instancia(instancia: int, extractor: BaseExtractor) -> dict[str, bo
 
     # 5. OCR + clasificación + Excel
     print(f"[4/4] Extrayendo texto de {len(copiados)} archivos...")
-    return procesar_instancia(instancia, copiados, extractor)
+    return procesar_instancia(instancia, copiados, extractor, periodo)
 
 def main():
-    if len(sys.argv) < 2:
-        print("Uso: python main.py <instancia> [<instancia> ...]")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Valida SUNAFIL / CUL / BOLETA de las solicitudes de un periodo")
+    parser.add_argument("periodo", help="Cod_Mes en formato YYYYMM, ej. 202607")
+    parser.add_argument("--limite", type=int, help="procesar solo las primeras N solicitudes")
+    args = parser.parse_args()
+
+    if not re.fullmatch(r"\d{4}(0[1-9]|1[0-2])", args.periodo):
+        parser.error(f"periodo inválido '{args.periodo}', se espera YYYYMM (ej. 202607)")
 
     setup_logging()
-    instancias = [int(arg) for arg in sys.argv[1:]]
+
+    # 1. Instancias del periodo
+    instancias = obtener_instancias(args.periodo)
+    if args.limite:
+        instancias = instancias[:args.limite]
+    print(f"Periodo {args.periodo}: {len(instancias)} solicitudes a procesar")
+    if not instancias:
+        return
+
     extractor = get_extractor()  # se crea una sola vez para todas las instancias
 
     fallidas = []
-    for instancia in instancias:
+    for n, instancia in enumerate(instancias, start=1):
+        print(f"\n({n}/{len(instancias)})", end="")
         try:
-            ejecutar_instancia(instancia, extractor)
+            ejecutar_instancia(instancia, args.periodo, extractor)
         except Exception as e:
             logger.exception(f"Error procesando la instancia {instancia}: {e}")
             fallidas.append(instancia)

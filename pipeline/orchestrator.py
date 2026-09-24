@@ -9,6 +9,7 @@ def procesar_instancia(
     instancia: int,
     archivos: list[tuple[Path, str | None]],
     extractor: BaseExtractor | None = None,
+    periodo: str | None = None,
 ) -> dict[str, bool]:
     """
     archivos: lista de (ruta_local, nombre_original).
@@ -20,7 +21,7 @@ def procesar_instancia(
 
     ruta_log, ruta_json = escribir_extraccion(str(instancia), resultados)
     tipos = resumir_instancia(resultados)
-    ruta_xlsx = registrar_instancia(instancia, tipos)
+    ruta_xlsx = registrar_instancia(instancia, tipos, periodo)
 
     print(f"\nInstancia {instancia}: " + " | ".join(f"{t}: {'SI' if v else 'NO'}" for t, v in tipos.items()))
     print(f"  Log:   {ruta_log}\n  JSON:  {ruta_json}\n  Excel: {ruta_xlsx}")
