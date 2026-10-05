@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 class Pagina:
     """Unidad atómica de extracción: 1 página de PDF, 1 imagen, o 1 bloque de un Word."""
     numero: int
-    metodo: str   # "texto_nativo" | "ocr"
+    metodo: str
     texto: str
 
 @dataclass
