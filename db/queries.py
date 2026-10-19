@@ -1,5 +1,4 @@
-from config.settings import settings
-from db.connection import get_connection
+from db.connection import get_connection, get_connection_negocio
 
 TABLA_RUTAS = "Riesgo..Rutas_instancias_BT_150926"
 
@@ -52,7 +51,7 @@ COLUMNAS_SOLICITUD = [
 
 def get_solicitudes_por_periodo(periodo: str) -> list[dict]:
     """Solicitudes (una por Num_Sol) del periodo YYYYMM, con los datos del cliente."""
-    conn = get_connection(settings.NEGOCIO_DB_HOST, settings.NEGOCIO_DB_NAME)
+    conn = get_connection_negocio()
     try:
         cursor = conn.cursor()
         cursor.execute(QUERY_SOLICITUDES_POR_PERIODO, periodo)

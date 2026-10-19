@@ -23,8 +23,13 @@ class Settings:
     DB_EXTRA_PARAMS = os.getenv("DB_EXTRA_PARAMS", "")
 
     # BD de Negocio: solicitudes del periodo (Num_Sol = instancia)
-    NEGOCIO_DB_HOST = os.getenv("NEGOCIO_DB_HOST")
     NEGOCIO_DB_NAME = os.getenv("NEGOCIO_DB_NAME")
+    NEGOCIO_DB_USER = os.getenv("NEGOCIO_DB_USER")
+    NEGOCIO_DB_PASSWORD = os.getenv("NEGOCIO_DB_PASSWORD")
+    NEGOCIO_DB_HOST = os.getenv("NEGOCIO_DB_HOST")
+    NEGOCIO_DB_PORT = os.getenv("NEGOCIO_DB_PORT")
+    NEGOCIO_DB_DRIVER = os.getenv("NEGOCIO_DB_DRIVER", DB_DRIVER)
+    NEGOCIO_DB_EXTRA_PARAMS = os.getenv("NEGOCIO_DB_EXTRA_PARAMS", "")
 
     FILE_SERVER_BASE_PATH = os.getenv("FILE_SERVER_BASE_PATH")
     DOWNLOAD_BASE_PATH = os.getenv("DOWNLOAD_BASE_PATH", "documentos")
