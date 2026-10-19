@@ -14,7 +14,6 @@ from models.document import Pagina
 logger = logging.getLogger(__name__)
 
 EXTENSIONES_IMAGEN = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp"}
-# Tesseract falla con imágenes chicas (fotos de celular pegadas en un PDF): se amplían hasta este ancho
 ANCHO_MINIMO_OCR = 1800
 
 class OcrExtractor(BaseExtractor):
@@ -53,7 +52,7 @@ class OcrExtractor(BaseExtractor):
         raise ValueError(f"Extensión no soportada: {extension}")
 
     def _ocr(self, imagen: Image.Image) -> str:
-        imagen = ImageOps.exif_transpose(imagen).convert("L")  # escala de grises mejora el OCR
+        imagen = ImageOps.exif_transpose(imagen).convert("L")
         if imagen.width < ANCHO_MINIMO_OCR:
             factor = ANCHO_MINIMO_OCR / imagen.width
             imagen = imagen.resize((ANCHO_MINIMO_OCR, int(imagen.height * factor)), Image.LANCZOS)
@@ -70,7 +69,6 @@ class OcrExtractor(BaseExtractor):
                 pix = page.get_pixmap(dpi=settings.PDF_DPI)
                 texto = self._ocr(Image.open(io.BytesIO(pix.tobytes("png"))))
                 if len(texto) < settings.MIN_CHARS_OCR_PAGINA:
-                    # La página completa dio poco texto: se intenta con cada foto incrustada por separado
                     texto = max(texto, self._ocr_imagenes_incrustadas(pdf, page), key=len)
                 paginas.append(Pagina(i, "ocr", texto))
         return paginas
