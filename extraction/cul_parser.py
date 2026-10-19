@@ -143,6 +143,30 @@ def ruc_empleador_actual(culs: list[dict]) -> str | None:
         return min(vigentes, key=lambda reg: _fecha(reg["desde"]))["ruc"]
     return registros[0]["ruc"] if registros else None
 
+OBS_OK = "OK"
+OBS_REGULARIZAR = "Regularizar CUL"
+OBS_REGULARIZAR_ANALITICA = "Regularizar CUL - ANALITICA"
+
+def _solo_digitos(valor) -> str:
+    return re.sub(r"\D", "", str(valor or ""))
+
+def validar_ruc(culs: list[dict], ruc_emp) -> tuple[str | None, str]:
+    """
+    Compara el Ruc_Emp de la solicitud con los RUC de la experiencia laboral del CUL:
+      - Ruc_Emp vacío y hay CUL -> (ruc_empleador_actual, "Regularizar CUL - ANALITICA")
+      - Coincide con alguno -> (ese RUC, "OK")
+      - Ninguno coincide (o no hay CUL) -> (ruc_empleador_actual, "Regularizar CUL")
+    """
+    ruc_emp = _solo_digitos(ruc_emp)
+    if not ruc_emp and culs:
+        return ruc_empleador_actual(culs), OBS_REGULARIZAR_ANALITICA
+    if ruc_emp:
+        for cul in culs:
+            for reg in cul["experiencia_laboral"]["registros"]:
+                if _solo_digitos(reg["ruc"]) == ruc_emp:
+                    return reg["ruc"], OBS_OK
+    return ruc_empleador_actual(culs), OBS_REGULARIZAR
+
 def extraer_cul(ruta: Path) -> dict:
     """Devuelve identidad y experiencia laboral de un CUL. Lanza ValueError si el PDF no es un CUL."""
     with pymupdf.open(ruta) as pdf:

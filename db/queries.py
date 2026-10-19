@@ -44,6 +44,12 @@ QUERY_SOLICITUDES_POR_PERIODO = """
       AND C.Num_Ope IS NOT NULL
 """
 
+# Columnas que devuelve QUERY_SOLICITUDES_POR_PERIODO, en el orden en que van al Excel de validación
+COLUMNAS_SOLICITUD = [
+    "Cod_Mes", "Num_Sol", "Est_Ing", "Fec_Ing", "Ing_Mes_PEN", "Usu_Eje", "Nom_Ccs", "Fec_Des",
+    "Num_Ope", "Tip_Doc_Cli", "Num_Doc_Cli", "Ruc_Emp", "Niv_Apr_Exp", "Nom_Cli", "Ape_Pat", "Ape_Mat",
+]
+
 def get_solicitudes_por_periodo(periodo: str) -> list[dict]:
     """Solicitudes (una por Num_Sol) del periodo YYYYMM, con los datos del cliente."""
     conn = get_connection(settings.NEGOCIO_DB_HOST, settings.NEGOCIO_DB_NAME)

@@ -3,7 +3,7 @@ from pathlib import Path
 from classification.rule_classifier import detectar_tipos, resumir_instancia
 from extraction import get_extractor
 from extraction.base_extractor import BaseExtractor
-from extraction.cul_parser import extraer_cul, ruc_empleador_actual
+from extraction.cul_parser import extraer_cul, validar_ruc
 from models.document import ResultadoExtraccion
 from storage.cul_writer import guardar_cul_json
 from storage.excel_writer import registrar_instancia
@@ -35,9 +35,11 @@ def procesar_instancia(
     archivos: list[tuple[Path, str | None]],
     extractor: BaseExtractor | None = None,
     periodo: str | None = None,
+    solicitud: dict | None = None,
 ) -> dict[str, bool]:
     """
     archivos: lista de (ruta_local, nombre_original).
+    solicitud: fila de la query del periodo; sus campos van al Excel junto con el resultado.
     Extrae texto, guarda el .log/.json, detecta SUNAFIL/CUL/BOLETA y registra la fila en el Excel.
     Si hay un CUL, además registra su identidad y experiencia laboral en el mismo Excel.
     Pasar el extractor permite reutilizarlo entre instancias (evita recargar el motor/modelo).
@@ -48,11 +50,12 @@ def procesar_instancia(
     ruta_log, ruta_json = escribir_extraccion(str(instancia), resultados)
     tipos = resumir_instancia(resultados)
     culs = extraer_culs(resultados)
-    ruc_cul = ruc_empleador_actual(culs)
-    ruta_xlsx = registrar_instancia(instancia, tipos, periodo, ruc_cul)
+    solicitud = solicitud or {"Num_Sol": instancia}
+    ruc_cul, observacion = validar_ruc(culs, solicitud.get("Ruc_Emp"))
+    ruta_xlsx = registrar_instancia(solicitud, tipos, periodo, ruc_cul, observacion)
 
     print(f"\nInstancia {instancia}: " + " | ".join(f"{t}: {'SI' if v else 'NO'}" for t, v in tipos.items())
-          + f" | RUC_CUL: {ruc_cul or '-'}")
+          + f" | Ruc_Emp: {solicitud.get('Ruc_Emp') or '-'} | RUC_CUL: {ruc_cul or '-'} | {observacion}")
     for cul in culs:
         ident = cul["identidad"]
         registros = cul["experiencia_laboral"]["registros"]

@@ -3,9 +3,12 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from config.settings import settings
 from classification.rule_classifier import PALABRAS_CLAVE
+from db.queries import COLUMNAS_SOLICITUD
 
 HOJA_VALIDACION = "Validacion"
-ENCABEZADOS = ["instancia", *PALABRAS_CLAVE, "RUC_CUL"]
+# Datos de la solicitud (query del periodo) + resultado de la validación de documentos
+ENCABEZADOS = [*COLUMNAS_SOLICITUD, *PALABRAS_CLAVE, "RUC_CUL", "OBSERVACION"]
+COL_NUM_SOL = COLUMNAS_SOLICITUD.index("Num_Sol")  # clave de la fila: Num_Sol = instancia
 
 def _ruta_excel(periodo: str | None) -> Path:
     ruta = Path(settings.RESULTADOS_DIR) / f"validacion_{periodo or 'sin_periodo'}.xlsx"
@@ -35,24 +38,40 @@ def _guardar(wb: Workbook, ruta: Path) -> None:
         raise PermissionError(f"No se pudo guardar {ruta}: ciérralo en Excel y vuelve a ejecutar") from None
 
 def registrar_instancia(
-    instancia: int, tipos: dict[str, bool], periodo: str | None = None, ruc_cul: str | None = None
+    solicitud: dict,
+    tipos: dict[str, bool],
+    periodo: str | None = None,
+    ruc_cul: str | None = None,
+    observacion: str | None = None,
 ) -> Path:
     """
-    Agrega (o actualiza, si ya existe) la fila de la instancia en el Excel del periodo
+    Agrega (o actualiza, si ya existe) la fila de la solicitud en el Excel del periodo
     (<RESULTADOS_DIR>/validacion_<periodo>.xlsx):
-    instancia | SUNAFIL | CUL | BOLETA  con valores SI / NO
-              | RUC_CUL  RUC del empleador vigente según el CUL (ver cul_parser.ruc_empleador_actual)
+    Cod_Mes | Num_Sol | ... | Ape_Mat   datos de la solicitud (db.queries.COLUMNAS_SOLICITUD)
+    | SUNAFIL | CUL | BOLETA            SI / NO
+    | RUC_CUL | OBSERVACION             comparación de Ruc_Emp con el CUL (ver cul_parser.validar_ruc)
     """
     ruta = _ruta_excel(periodo)
     wb = _abrir_libro(ruta)
     ws = _hoja(wb, HOJA_VALIDACION, ENCABEZADOS)
-    for col, encabezado in enumerate(ENCABEZADOS, start=1):  # Excel de corridas anteriores sin RUC_CUL
-        ws.cell(1, col).value = encabezado
 
-    fila = [instancia, *("SI" if tipos[t] else "NO" for t in PALABRAS_CLAVE), ruc_cul]
+    encabezados_actuales = [c.value for c in ws[1]]
+    if encabezados_actuales != ENCABEZADOS:
+        raise ValueError(
+            f"{ruta} tiene columnas de una versión anterior ({encabezados_actuales}): "
+            "renómbralo o elimínalo y vuelve a ejecutar"
+        )
+
+    num_sol = int(solicitud["Num_Sol"])
+    fila = [
+        *(num_sol if col == "Num_Sol" else solicitud.get(col) for col in COLUMNAS_SOLICITUD),
+        *("SI" if tipos[t] else "NO" for t in PALABRAS_CLAVE),
+        ruc_cul,
+        observacion,
+    ]
 
     for row in ws.iter_rows(min_row=2):
-        if row[0].value == instancia:
+        if row[COL_NUM_SOL].value == num_sol:
             for celda, valor in zip(row, fila):
                 celda.value = valor
             break

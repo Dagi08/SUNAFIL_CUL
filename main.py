@@ -5,7 +5,8 @@ Flujo completo por periodo:
   2. Consulta en BD Riesgo los archivos de la instancia y filtra por nombre los que no se validan
   3. Arma la ruta de cada archivo en el file server
   4. Copia los archivos a DOWNLOAD_BASE_PATH/<instancia>/
-  5. Extrae texto (OCR), guarda .log/.json y registra SUNAFIL | CUL | BOLETA en resultados/validacion_<periodo>.xlsx
+  5. Extrae texto (OCR), guarda .log/.json y registra en resultados/validacion_<periodo>.xlsx los campos de la
+     solicitud + SUNAFIL | CUL | BOLETA (una fila por solicitud, aunque no tenga archivos)
   6. Si hay un CUL, extrae IDENTIDAD y EXPERIENCIA LABORAL: el RUC del empleador vigente va a la columna RUC_CUL
      del Excel y el detalle completo a documentos/<instancia>/<archivo>.json (junto al PDF)
 
@@ -18,29 +19,40 @@ import logging
 import re
 import sys
 from pathlib import Path
+from classification.rule_classifier import PALABRAS_CLAVE
 from config.logging_config import setup_logging
 from db.queries import get_archivos_por_instancia, get_solicitudes_por_periodo
 from extraction import get_extractor
 from extraction.base_extractor import BaseExtractor
+from extraction.cul_parser import OBS_REGULARIZAR
 from file_access.name_filter import es_archivo_excluido
 from file_access.file_locator import listar_archivos_cliente
 from file_access.file_downloader import descargar_archivos
 from pipeline.orchestrator import procesar_instancia
+from storage.excel_writer import registrar_instancia
 
 logger = logging.getLogger(__name__)
 
-def obtener_instancias(periodo: str) -> list[int]:
-    """Num_Sol únicos del periodo, en el orden que devuelve la query."""
-    solicitudes = get_solicitudes_por_periodo(periodo)
-    return list(dict.fromkeys(int(s["Num_Sol"]) for s in solicitudes))
+def obtener_solicitudes(periodo: str) -> list[dict]:
+    """Una solicitud por Num_Sol (la primera que devuelve la query), en el orden de la query."""
+    solicitudes = {}
+    for s in get_solicitudes_por_periodo(periodo):
+        solicitudes.setdefault(int(s["Num_Sol"]), s)
+    return list(solicitudes.values())
 
-def ejecutar_instancia(instancia: int, periodo: str, extractor: BaseExtractor) -> dict[str, bool] | None:
+def registrar_sin_documentos(solicitud: dict, periodo: str) -> None:
+    """La solicitud igual queda en el Excel, con SUNAFIL / CUL / BOLETA en NO."""
+    registrar_instancia(solicitud, {t: False for t in PALABRAS_CLAVE}, periodo, observacion=OBS_REGULARIZAR)
+
+def ejecutar_instancia(solicitud: dict, periodo: str, extractor: BaseExtractor) -> dict[str, bool] | None:
+    instancia = int(solicitud["Num_Sol"])
     print(f"\n{'=' * 70}\nINSTANCIA {instancia}\n{'=' * 70}")
 
     # 2. Archivos de la instancia + filtro por nombre
     registros = get_archivos_por_instancia(instancia)
     if not registros:
         print("No hay registros de archivos en BD para esta instancia")
+        registrar_sin_documentos(solicitud, periodo)
         return None
 
     excluidos = [r for r in registros if es_archivo_excluido(r["nombre_original"])]
@@ -52,6 +64,7 @@ def ejecutar_instancia(instancia: int, periodo: str, extractor: BaseExtractor) -
     archivos = listar_archivos_cliente(instancia, registros)
     if not archivos:
         print("No quedaron archivos por procesar")
+        registrar_sin_documentos(solicitud, periodo)
         return None
     print(f"[2/4] Rutas generadas: {len(archivos)} (existen: {sum(a['existe'] for a in archivos)})")
 
@@ -65,11 +78,12 @@ def ejecutar_instancia(instancia: int, periodo: str, extractor: BaseExtractor) -
     copiados = [(Path(a["ruta_local"]), a["nombre_original"]) for a in descargados if a["copiado"]]
     if not copiados:
         print("No se copió ningún archivo, no hay nada que extraer")
+        registrar_sin_documentos(solicitud, periodo)
         return None
 
     # 5. OCR + clasificación + Excel
     print(f"[4/4] Extrayendo texto de {len(copiados)} archivos...")
-    return procesar_instancia(instancia, copiados, extractor, periodo)
+    return procesar_instancia(instancia, copiados, extractor, periodo, solicitud)
 
 def main():
     parser = argparse.ArgumentParser(description="Valida SUNAFIL / CUL / BOLETA de las solicitudes de un periodo")
@@ -82,26 +96,27 @@ def main():
 
     setup_logging()
 
-    # 1. Instancias del periodo
-    instancias = obtener_instancias(args.periodo)
+    # 1. Solicitudes del periodo
+    solicitudes = obtener_solicitudes(args.periodo)
     if args.limite:
-        instancias = instancias[:args.limite]
-    print(f"Periodo {args.periodo}: {len(instancias)} solicitudes a procesar")
-    if not instancias:
+        solicitudes = solicitudes[:args.limite]
+    print(f"Periodo {args.periodo}: {len(solicitudes)} solicitudes a procesar")
+    if not solicitudes:
         return
 
     extractor = get_extractor()  # se crea una sola vez para todas las instancias
 
     fallidas = []
-    for n, instancia in enumerate(instancias, start=1):
-        print(f"\n({n}/{len(instancias)})", end="")
+    for n, solicitud in enumerate(solicitudes, start=1):
+        print(f"\n({n}/{len(solicitudes)})", end="")
         try:
-            ejecutar_instancia(instancia, args.periodo, extractor)
+            ejecutar_instancia(solicitud, args.periodo, extractor)
         except Exception as e:
+            instancia = int(solicitud["Num_Sol"])
             logger.exception(f"Error procesando la instancia {instancia}: {e}")
             fallidas.append(instancia)
 
-    print(f"\nProcesadas: {len(instancias) - len(fallidas)}/{len(instancias)}")
+    print(f"\nProcesadas: {len(solicitudes) - len(fallidas)}/{len(solicitudes)}")
     if fallidas:
         print(f"Con error (ver logs/app.log): {fallidas}")
         sys.exit(1)
