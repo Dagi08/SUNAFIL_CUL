@@ -6,6 +6,8 @@ Flujo completo por periodo:
   3. Arma la ruta de cada archivo en el file server
   4. Copia los archivos a DOWNLOAD_BASE_PATH/<instancia>/
   5. Extrae texto (OCR), guarda .log/.json y registra SUNAFIL | CUL | BOLETA en resultados/validacion_<periodo>.xlsx
+  6. Si hay un CUL, extrae IDENTIDAD y EXPERIENCIA LABORAL: el RUC del empleador vigente va a la columna RUC_CUL
+     del Excel y el detalle completo a documentos/<instancia>/<archivo>.json (junto al PDF)
 
 Uso:
     python main.py 202607
