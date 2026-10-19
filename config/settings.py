@@ -23,8 +23,8 @@ class Settings:
     DB_EXTRA_PARAMS = os.getenv("DB_EXTRA_PARAMS", "")
 
     # BD de Negocio: solicitudes del periodo (Num_Sol = instancia)
-    NEGOCIO_DB_HOST = os.getenv("NEGOCIO_DB_HOST", r"SRVJADBANLT01\SQL01DBA2019")
-    NEGOCIO_DB_NAME = os.getenv("NEGOCIO_DB_NAME", "Negocio")
+    NEGOCIO_DB_HOST = os.getenv("NEGOCIO_DB_HOST")
+    NEGOCIO_DB_NAME = os.getenv("NEGOCIO_DB_NAME")
 
     FILE_SERVER_BASE_PATH = os.getenv("FILE_SERVER_BASE_PATH")
     DOWNLOAD_BASE_PATH = os.getenv("DOWNLOAD_BASE_PATH", "documentos")
