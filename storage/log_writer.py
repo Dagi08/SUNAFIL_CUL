@@ -5,13 +5,17 @@ from pathlib import Path
 from config.settings import settings
 from models.document import ResultadoExtraccion
 
-def escribir_extraccion(identificador: str, resultados: list[ResultadoExtraccion]) -> tuple[Path, Path]:
+def escribir_extraccion(
+    identificador: str, resultados: list[ResultadoExtraccion], periodo: str | None = None
+) -> tuple[Path, Path]:
     """
-    Guarda lo extraído en logs/extraccion/:
+    Guarda lo extraído en logs/extraccion/<periodo>/ (logs/extraccion/ si no hay periodo):
       - <id>_<fecha>.log  → legible, para revisar cómo sale el texto por página
       - <id>_<fecha>.json → estructurado, entrada para la futura clasificación
     """
     carpeta = Path(settings.LOG_DIR) / "extraccion"
+    if periodo:
+        carpeta /= periodo
     carpeta.mkdir(parents=True, exist_ok=True)
     base = carpeta / f"{identificador}_{datetime.now():%Y%m%d_%H%M%S}"
 

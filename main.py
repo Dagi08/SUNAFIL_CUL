@@ -24,7 +24,7 @@ from config.logging_config import setup_logging
 from db.queries import get_archivos_por_instancia, get_solicitudes_por_periodo
 from extraction import get_extractor
 from extraction.base_extractor import BaseExtractor
-from extraction.cul_parser import OBS_REGULARIZAR
+from extraction.cul_parser import validar_ruc
 from file_access.name_filter import es_archivo_excluido
 from file_access.file_locator import listar_archivos_cliente
 from file_access.file_downloader import descargar_archivos
@@ -42,7 +42,8 @@ def obtener_solicitudes(periodo: str) -> list[dict]:
 
 def registrar_sin_documentos(solicitud: dict, periodo: str) -> None:
     """La solicitud igual queda en el Excel, con SUNAFIL / CUL / BOLETA en NO."""
-    registrar_instancia(solicitud, {t: False for t in PALABRAS_CLAVE}, periodo, observacion=OBS_REGULARIZAR)
+    _, mensaje = validar_ruc([], solicitud.get("Ruc_Emp"))
+    registrar_instancia(solicitud, {t: False for t in PALABRAS_CLAVE}, periodo, mensaje=mensaje)
 
 def ejecutar_instancia(solicitud: dict, periodo: str, extractor: BaseExtractor) -> dict[str, bool] | None:
     instancia = int(solicitud["Num_Sol"])
@@ -69,7 +70,7 @@ def ejecutar_instancia(solicitud: dict, periodo: str, extractor: BaseExtractor) 
     print(f"[2/4] Rutas generadas: {len(archivos)} (existen: {sum(a['existe'] for a in archivos)})")
 
     # 4. Copia local
-    descargados = descargar_archivos(instancia, archivos)
+    descargados = descargar_archivos(instancia, archivos, periodo)
     print(f"[3/4] Descarga:")
     for a in descargados:
         estado = "COPIADO" if a["copiado"] else "FALLÓ/NO EXISTE"

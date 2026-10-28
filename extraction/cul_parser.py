@@ -143,29 +143,32 @@ def ruc_empleador_actual(culs: list[dict]) -> str | None:
         return min(vigentes, key=lambda reg: _fecha(reg["desde"]))["ruc"]
     return registros[0]["ruc"] if registros else None
 
-OBS_OK = "OK"
-OBS_REGULARIZAR = "Regularizar CUL"
-OBS_REGULARIZAR_ANALITICA = "Regularizar CUL - ANALITICA"
+MSJ_REGULARIZAR_ANALITICA = "Regularizar CUL - ANALITICA"
+MSJ_INDEPENDIENTE = "Independiente - RUC 10"
+PREFIJO_RUC_PERSONA_NATURAL = "10"  # RUC 10 = persona natural (10 + DNI + dígito): no figura en planilla
 
 def _solo_digitos(valor) -> str:
     return re.sub(r"\D", "", str(valor or ""))
 
-def validar_ruc(culs: list[dict], ruc_emp) -> tuple[str | None, str]:
+def validar_ruc(culs: list[dict], ruc_emp) -> tuple[str | None, str | None]:
     """
-    Compara el Ruc_Emp de la solicitud con los RUC de la experiencia laboral del CUL:
+    RUC_CUL y MENSAJE de la solicitud, comparando su Ruc_Emp con los RUC de la experiencia laboral del CUL:
       - Ruc_Emp vacío y hay CUL -> (ruc_empleador_actual, "Regularizar CUL - ANALITICA")
-      - Coincide con alguno -> (ese RUC, "OK")
-      - Ninguno coincide (o no hay CUL) -> (ruc_empleador_actual, "Regularizar CUL")
+      - Coincide con alguno -> (ese RUC, None)
+      - Ninguno coincide y Ruc_Emp es RUC 10 -> (ruc_empleador_actual, "Independiente - RUC 10")
+      - Ninguno coincide (o no hay CUL) -> (ruc_empleador_actual, None)
     """
     ruc_emp = _solo_digitos(ruc_emp)
     if not ruc_emp and culs:
-        return ruc_empleador_actual(culs), OBS_REGULARIZAR_ANALITICA
+        return ruc_empleador_actual(culs), MSJ_REGULARIZAR_ANALITICA
     if ruc_emp:
         for cul in culs:
             for reg in cul["experiencia_laboral"]["registros"]:
                 if _solo_digitos(reg["ruc"]) == ruc_emp:
-                    return reg["ruc"], OBS_OK
-    return ruc_empleador_actual(culs), OBS_REGULARIZAR
+                    return reg["ruc"], None
+    if ruc_emp.startswith(PREFIJO_RUC_PERSONA_NATURAL):
+        return ruc_empleador_actual(culs), MSJ_INDEPENDIENTE
+    return ruc_empleador_actual(culs), None
 
 def extraer_cul(ruta: Path) -> dict:
     """Devuelve identidad y experiencia laboral de un CUL. Lanza ValueError si el PDF no es un CUL."""

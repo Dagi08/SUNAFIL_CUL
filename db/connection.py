@@ -4,7 +4,7 @@ from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
-def _conectar(driver, host, port, database, user, password, extra_params):
+def armar_conn_str(driver, host, port, database, user, password, extra_params) -> str:
     conn_parts = [
         f"DRIVER={{{driver}}}"
     ]
@@ -25,7 +25,10 @@ def _conectar(driver, host, port, database, user, password, extra_params):
     if extra_params:
         conn_parts.append(extra_params)
 
-    conn_str = ";".join(conn_parts)
+    return ";".join(conn_parts)
+
+def _conectar(driver, host, port, database, user, password, extra_params):
+    conn_str = armar_conn_str(driver, host, port, database, user, password, extra_params)
 
     # No se imprime conn_str completo para no exponer credenciales
     logger.info(f"Conectando a {host} / {database}")
