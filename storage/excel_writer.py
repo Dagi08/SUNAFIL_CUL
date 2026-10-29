@@ -63,7 +63,8 @@ def registrar_instancia(
     | SUNAFIL | CUL | BOLETA            SI / NO
     | RUC_CUL | MENSAJE                 comparación de Ruc_Emp con el CUL (ver cul_parser.validar_ruc)
     | RUC_SUNAFIL | FECHA_INGRESO_SUNAFIL | FECHA_VERIFICACION_SUNAFIL   constancia SUNAFIL (ver sunafil_parser)
-    | OBSERVACION                       OK si tiene CUL o SUNAFIL (ver rule_classifier.observacion)
+    | OBSERVACION                       OK si tiene CUL, SUNAFIL o boleta de pensión militar/policial
+                                      (ver rule_classifier.observacion)
     """
     ruta = _ruta_excel(periodo)
     wb = _abrir_libro(ruta)

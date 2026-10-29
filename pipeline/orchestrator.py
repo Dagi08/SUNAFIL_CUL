@@ -1,6 +1,8 @@
 import logging
 from pathlib import Path
-from classification.rule_classifier import detectar_tipos, observacion, resumir_instancia
+from classification.rule_classifier import (
+    MENSAJES_SUSTITUTOS, detectar_tipos, mensaje_sustituto, observacion, resumir_instancia,
+)
 from extraction import get_extractor
 from extraction.base_extractor import BaseExtractor
 from extraction.cul_parser import extraer_cul, validar_ruc
@@ -34,12 +36,13 @@ def extraer_culs(resultados: list[ResultadoExtraccion]) -> list[dict]:
 
 def archivos_sin_cul_ni_sunafil(resultados: list[ResultadoExtraccion]) -> list[Path]:
     """
-    Archivos que no contienen CUL ni SUNAFIL. Los que dieron error al extraer no se incluyen:
-    no se sabe qué tienen, así que se conservan para revisarlos.
+    Archivos que no contienen CUL, SUNAFIL ni boleta de pensión militar/policial.
+    Los que dieron error al extraer no se incluyen: no se sabe qué tienen, así que se conservan para revisarlos.
     """
+    conservar = {"CUL", "SUNAFIL", *MENSAJES_SUSTITUTOS}
     return [
         Path(r.archivo) for r in resultados
-        if not r.error and not ({"CUL", "SUNAFIL"} & detectar_tipos(r))
+        if not r.error and not (conservar & detectar_tipos(r))
     ]
 
 def procesar_instancia(
@@ -65,6 +68,8 @@ def procesar_instancia(
     culs = extraer_culs(resultados)
     solicitud = solicitud or {"Num_Sol": instancia}
     ruc_cul, mensaje = validar_ruc(culs, solicitud.get("Ruc_Emp"))
+    # pensionista militar/policial: no se le exige CUL ni SUNAFIL (OBSERVACION = OK, ver observacion)
+    mensaje = mensaje_sustituto(tipos) or mensaje
     sunafil = extraer_sunafil(resultados)
     if sunafil:
         sunafil["ruta_json"] = str(guardar_sunafil_json(sunafil, Path(sunafil["archivo"])))
@@ -87,6 +92,6 @@ def procesar_instancia(
             print(f"      {reg['ruc']} {reg['razon_social']}: {reg['desde']} -> {reg['hasta']}")
         print(f"      JSON: {cul['ruta_json']}")
     if borrados:
-        print(f"  Borrados {len(borrados)} archivo(s) sin CUL ni SUNAFIL (el texto queda en el log de extracción)")
+        print(f"  Borrados {len(borrados)} archivo(s) sin CUL, SUNAFIL ni boleta de pensión (el texto queda en el log de extracción)")
     print(f"  Log:   {ruta_log}\n  JSON:  {ruta_json}\n  Excel: {ruta_xlsx}")
     return tipos

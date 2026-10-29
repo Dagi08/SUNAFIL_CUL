@@ -24,7 +24,7 @@ Otros scripts (desde la raíz del proyecto):
 | `python -m scripts.test_conexion` | Diagnostica la conexión a las BD de Negocio y Riesgo con lo que hay en el `.env` |
 | `python -m scripts.extraer_cul <pdf_o_carpeta>` | Extrae un CUL a JSON sin BD ni file server |
 | `python -m scripts.test_ocr <archivo_o_carpeta>` | Prueba el OCR sobre archivos locales |
-| `python -m scripts.procesar_descargados [instancia ...]` | Reprocesa lo ya descargado en `documentos/<periodo>/<instancia>/` sin consultar la BD (en el Excel solo se llena `Num_Sol` de los datos de la solicitud). También borra los archivos sin CUL ni SUNAFIL |
+| `python -m scripts.procesar_descargados [instancia ...]` | Reprocesa lo ya descargado en `documentos/<periodo>/<instancia>/` sin consultar la BD (en el Excel solo se llena `Num_Sol` de los datos de la solicitud). También borra los archivos sin CUL, SUNAFIL ni boleta de pensión militar/policial |
 
 ## Flujo
 
@@ -34,10 +34,10 @@ Otros scripts (desde la raíz del proyecto):
    2. **Filtro por nombre** – se descartan los que no se validan: hoja resumen, pagaré, contratos, cronograma, desgravamen, etc. (`file_access/name_filter.py`).
    3. **Ruta en el file server** y **copia local** a `documentos/<periodo>/<instancia>/`.
    4. **Extracción de texto** (`extraction/ocr_extractor.py`): texto nativo del PDF; OCR con Tesseract para escaneos, imágenes y fotos dentro de Word. Se guarda `logs/extraccion/<periodo>/<instancia>_<fecha>.log` y `.json`.
-   5. **Clasificación** SUNAFIL / CUL / BOLETA (`classification/rule_classifier.py`).
+   5. **Clasificación** SUNAFIL / CUL / BOLETA y boleta de pensión militar/policial (`classification/rule_classifier.py`).
    6. **Lectura del CUL** (`extraction/cul_parser.py`): identidad (RENIEC) y experiencia laboral (Planillas Electrónicas). El detalle se guarda junto al PDF como `<archivo>.json`; los datos de SUNAFIL, como `<archivo>_sunafil.json`.
    7. **Fila en el Excel** (`storage/excel_writer.py`).
-   8. **Limpieza**: se borran las copias locales de los archivos que no tienen CUL ni SUNAFIL (ver [Carpetas](#carpetas)).
+   8. **Limpieza**: se borran las copias locales de los archivos que no tienen CUL, SUNAFIL ni un [documento que los reemplace](#documentos-que-reemplazan-al-cul--sunafil) (ver [Carpetas](#carpetas)).
 3. Al final muestra cuántas solicitudes se procesaron y cuáles fallaron (detalle en `logs/app.log`).
 
 ## Carpetas
@@ -46,12 +46,13 @@ Cada periodo tiene sus propias carpetas, que se crean solas al correr `main.py <
 
 ```
 resultados/validacion_<periodo>.xlsx            reporte del periodo
-documentos/<periodo>/<instancia>/               archivos con CUL o SUNAFIL + sus JSON
+documentos/<periodo>/<instancia>/               archivos con CUL, SUNAFIL o boleta de pensión militar/policial + sus JSON
 logs/extraccion/<periodo>/<instancia>_<fecha_hora>.log / .json   texto extraído de todos los archivos
 logs/app.log                                    log general (se acumulan todas las corridas)
 ```
 
-- Al terminar cada solicitud se **borran** de `documentos/` los archivos que no contienen CUL ni SUNAFIL
+- Al terminar cada solicitud se **borran** de `documentos/` los archivos que no contienen CUL, SUNAFIL ni boleta de
+  pensión militar/policial
   (son copias, el original sigue en el file server). Su texto queda en `logs/extraccion/`.
 - No se borran los archivos que dieron error al extraer (no se sabe qué contienen), para poder revisarlos.
 - Si la carpeta de la instancia queda vacía, también se borra.
@@ -71,7 +72,7 @@ actualiza, no se duplica.
 | `RUC_CUL` | RUC del empleador tomado del CUL |
 | `RUC_SUNAFIL`, `FECHA_INGRESO_SUNAFIL`, `FECHA_VERIFICACION_SUNAFIL` | Datos de la constancia SUNAFIL "Verifica tu Chamba" |
 | `OBSERVACION` | OK / Regularizar SUNAFIL / CUL |
-| `MENSAJE` | Detalle adicional sobre el RUC |
+| `MENSAJE` | Detalle adicional (RUC / pensión militar o policial) |
 
 ### SUNAFIL / CUL / BOLETA
 
@@ -83,12 +84,21 @@ actualiza, no se duplica.
 | CUL | `CERTIFICADO UNICO LABORAL` |
 | BOLETA | `BOLETA` |
 
+### Documentos que reemplazan al CUL / SUNAFIL
+
+No tienen columna propia en el Excel: solo cambian `OBSERVACION` (queda `OK`) y `MENSAJE`, y el archivo no se borra.
+
+| Documento | Cómo se detecta | `MENSAJE` |
+|---|---|---|
+| Boleta de pensión (policías y militares en retiro) | `CAJA DE PENSIONES MILITAR POLICIAL` | `PENSION MILITAR O POLICIA` |
+
 ### OBSERVACION
 
 | Condición | Valor |
 |---|---|
 | La solicitud tiene **CUL** o **SUNAFIL** | `OK` |
-| No tiene ninguno de los dos | `Regularizar SUNAFIL / CUL` |
+| Tiene un [documento que los reemplaza](#documentos-que-reemplazan-al-cul--sunafil) (boleta de pensión militar/policial) | `OK` |
+| No tiene ninguno | `Regularizar SUNAFIL / CUL` |
 
 ### RUC_CUL
 
@@ -121,6 +131,7 @@ Se leen de las páginas que dicen "VERIFICA TU CHAMBA", aunque la constancia ven
 
 | Condición | Valor |
 |---|---|
+| Tiene boleta de pensión de la Caja de Pensiones Militar Policial (tiene prioridad sobre las demás) | `PENSION MILITAR O POLICIA` |
 | `Ruc_Emp` vacío y hay CUL | `Regularizar CUL - ANALITICA` |
 | `Ruc_Emp` empieza con **10** (persona natural / independiente, no figura en planilla) y no coincide con ningún RUC del CUL, haya o no CUL | `Independiente - RUC 10` |
 | Cualquier otro caso | vacío |
